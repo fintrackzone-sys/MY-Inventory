@@ -64,7 +64,6 @@
     <div id="app-section" style="display: none;">
         <header>
             <div class="header-content">
-                <img id="business-logo" src="" alt="Logo" style="display: none; height: 50px; margin-right: 10px;">
                 <h1 id="business-name">Aplikasi Pencatatan Persediaan</h1>
             </div>
             <div class="hamburger-menu">
@@ -86,17 +85,13 @@
                 <input type="hidden" id="item-id">
                 <div class="form-group">
                     <label for="item-code">Kode Item:</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="item-code" required style="flex: 1;">
-                        <button type="button" id="barcode-btn" class="action-btn" title="Scan Barcode" style="padding: 8px 12px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer;">📱</button>
-                    </div>
+                    <input type="text" id="item-code" required>
+                    <button type="button" id="barcode-btn" class="action-btn" title="Scan Barcode" style="padding: 8px 168px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;">📱</button>
                 </div>
                 <div class="form-group">
                     <label for="item-name">Nama Item:</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="item-name" required style="flex: 1;">
-                        <button type="button" id="camera-btn" class="action-btn" title="Ambil Foto" style="padding: 8px 12px; background: linear-gradient(135deg, #2196f3, #1976d2); color: white; border: none; border-radius: 4px; cursor: pointer;">📷</button>
-                    </div>
+                    <input type="text" id="item-name" required>
+                    <button type="button" id="camera-btn" class="action-btn" title="Ambil Foto" style="padding: 8px 165px; background: linear-gradient(135deg, #2196f3, #1976d2); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;">📷</button>
                 </div>
                 <div class="form-group">
                     <label for="item-stock">Stok:</label>
@@ -156,15 +151,6 @@
                 <button type="submit">Simpan Nama Usaha</button>
             </form>
             <hr>
-            <h3>Logo Perusahaan</h3>
-            <div class="form-group">
-                <label for="business-logo-input">Upload Logo:</label>
-                <input type="file" id="business-logo-input" accept="image/*">
-                <div id="current-logo-preview" style="margin-top: 10px;">
-                    <!-- Current logo preview will be shown here -->
-                </div>
-            </div>
-            <hr>
             <h3>Ubah Password</h3>
             <form id="change-password-form">
                 <div class="form-group">
@@ -191,7 +177,11 @@
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Tambah Transaksi</h2>
-            <form id="transaction-form">
+            <form id="transaction-form" class="transaction-form">
+                <div class="form-group">
+                    <label for="transaction-date">Tanggal:</label>
+                    <input type="date" id="transaction-date" required>
+                </div>
                 <div class="form-group">
                     <label for="transaction-item-select">Pilih Item:</label>
                     <select id="transaction-item-select" required>
@@ -212,10 +202,6 @@
                 <div class="form-group" id="cost-field" style="display: none;">
                     <label for="transaction-cost">Harga per Unit:</label>
                     <input type="number" id="transaction-cost" min="0" step="0.01" placeholder="Harga per unit">
-                </div>
-                <div class="form-group">
-                    <label for="transaction-date">Tanggal:</label>
-                    <input type="date" id="transaction-date" required>
                 </div>
                 <div class="form-group">
                     <label for="transaction-notes">Catatan:</label>

@@ -32,9 +32,6 @@ const editBusinessForm = document.getElementById('edit-business-form');
 const changePasswordForm = document.getElementById('change-password-form');
 const businessNameElement = document.getElementById('business-name');
 const businessNameInput = document.getElementById('business-name-input');
-const businessLogoElement = document.getElementById('business-logo');
-const businessLogoInput = document.getElementById('business-logo-input');
-const currentLogoPreview = document.getElementById('current-logo-preview');
 
 // Registration modal
 const registerModal = document.getElementById('register-modal');
@@ -143,12 +140,6 @@ function showApp() {
     loginSection.style.display = 'none';
     appSection.style.display = 'block';
     businessNameElement.textContent = currentBusiness.name;
-    if (currentBusiness.logo) {
-        businessLogoElement.src = currentBusiness.logo;
-        businessLogoElement.style.display = 'block';
-    } else {
-        businessLogoElement.style.display = 'none';
-    }
     renderItems();
 }
 
@@ -200,9 +191,6 @@ logoutLink.addEventListener('click', logout);
 // Business edit modal event listeners
 editBusinessForm.addEventListener('submit', saveBusinessName);
 changePasswordForm.addEventListener('submit', changePassword);
-
-// Logo input event listener
-businessLogoInput.addEventListener('change', handleLogoChange);
 
 // Registration toggle event listeners
 loginToggle.addEventListener('click', function() {
@@ -400,6 +388,24 @@ function showStockCards() {
     // Clear existing content
     stockCardSection.innerHTML = '';
 
+    // Add controls
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'stock-card-controls';
+    controlsDiv.innerHTML = `
+        <input type="text" id="stock-search" placeholder="Cari item...">
+        <button id="stock-barcode-btn" class="action-btn" title="Scan Barcode untuk Transaksi" style="padding: 10px 15px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer;">📱 Scan Barcode</button>
+    `;
+    stockCardSection.appendChild(controlsDiv);
+
+    // Add stock card container
+    const containerDiv = document.createElement('div');
+    containerDiv.id = 'stock-card-container';
+    stockCardSection.appendChild(containerDiv);
+
+    // Re-attach event listeners
+    document.getElementById('stock-search').addEventListener('input', filterStockCards);
+    document.getElementById('stock-barcode-btn').addEventListener('click', () => openBarcodeModal('transaction'));
+
     // Add separate transaction section
     const transactionSection = renderTransactionSection();
     stockCardSection.appendChild(transactionSection);
@@ -419,12 +425,16 @@ function renderStockOpname() {
     opnameSection.className = 'stock-opname-section';
     opnameSection.innerHTML = `
         <h2>Persediaan Barang</h2>
+        <button id="print-stock-btn" class="print-btn">Print Kartu Stok</button>
         <h3>Daftar Item Stok</h3>
         <div id="stock-items-list">
             <!-- Stock items list will be populated here -->
         </div>
     `;
     stockCardSection.appendChild(opnameSection);
+
+    // Add event listener for print button
+    document.getElementById('print-stock-btn').addEventListener('click', printStockCards);
 
     // Render stock items list
     renderStockItemsList();
@@ -621,19 +631,108 @@ function filterStockCards() {
 }
 
 function printStockCards() {
-    window.print();
+    // Create print content for stock opname report
+    const printWindow = window.open('', '_blank');
+    const currentDate = new Date().toLocaleDateString('id-ID');
+
+    let printContent = `
+        <html>
+        <head>
+            <title>Laporan Persediaan Barang</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { text-align: center; margin-bottom: 10px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .business-name { font-size: 18px; font-weight: bold; }
+                .date { font-size: 14px; margin-top: 5px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; font-weight: bold; }
+                .total-row { font-weight: bold; background-color: #e9e9e9; }
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="business-name">${currentBusiness ? currentBusiness.name : 'Nama Usaha'}</div>
+                <div class="date">Tanggal: ${currentDate}</div>
+                <h1>Persediaan Barang</h1>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Kode Item</th>
+                        <th>Nama Item</th>
+                        <th>Persediaan Awal</th>
+                        <th>Jumlah Masuk</th>
+                        <th>Jumlah Keluar</th>
+                        <th>Persediaan Terakhir</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    let totalInitial = 0;
+    let totalIncoming = 0;
+    let totalOutgoing = 0;
+    let totalFinal = 0;
+
+    items.forEach((item, index) => {
+        const transactions = item.transactions || [];
+        const incoming = transactions.filter(t => t.type === 'incoming').reduce((sum, t) => sum + t.quantity, 0);
+        const outgoing = transactions.filter(t => t.type === 'outgoing').reduce((sum, t) => sum + t.quantity, 0);
+        const initialStock = item.stock - incoming + outgoing;
+        const finalStock = item.stock;
+
+        totalInitial += initialStock;
+        totalIncoming += incoming;
+        totalOutgoing += outgoing;
+        totalFinal += finalStock;
+
+        printContent += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${item.code}</td>
+                <td>${item.name}</td>
+                <td>${initialStock}</td>
+                <td>${incoming}</td>
+                <td>${outgoing}</td>
+                <td>${finalStock}</td>
+            </tr>
+        `;
+    });
+
+    // Add total row
+    printContent += `
+            <tr class="total-row">
+                <td colspan="3"><strong>TOTAL</strong></td>
+                <td><strong>${totalInitial}</strong></td>
+                <td><strong>${totalIncoming}</strong></td>
+                <td><strong>${totalOutgoing}</strong></td>
+                <td><strong>${totalFinal}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    <div style="margin-top: 30px; text-align: center; font-size: 12px;">
+        <p>Dicetak pada: ${new Date().toLocaleString('id-ID')}</p>
+    </div>
+</body>
+</html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
 }
 
 // Business edit functions
 function openEditBusinessModal() {
     if (currentBusiness) {
         businessNameInput.value = currentBusiness.name;
-        if (currentBusiness.logo) {
-            currentLogoPreview.src = currentBusiness.logo;
-            currentLogoPreview.style.display = 'block';
-        } else {
-            currentLogoPreview.style.display = 'none';
-        }
         editBusinessModal.style.display = 'block';
         hamburgerMenu.classList.remove('active');
     }
@@ -645,15 +744,6 @@ function saveBusinessName(e) {
     if (newName && currentBusiness) {
         currentBusiness.name = newName;
         businessNameElement.textContent = newName;
-        // Save logo if changed
-        if (currentLogoPreview.src && currentLogoPreview.style.display !== 'none') {
-            currentBusiness.logo = currentLogoPreview.src;
-            businessLogoElement.src = currentBusiness.logo;
-            businessLogoElement.style.display = 'block';
-        } else {
-            currentBusiness.logo = '';
-            businessLogoElement.style.display = 'none';
-        }
         saveBusinesses();
         editBusinessModal.style.display = 'none';
     }
@@ -700,19 +790,7 @@ function changePassword(e) {
     alert('Password berhasil diubah!');
 }
 
-function handleLogoChange(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            currentLogoPreview.src = event.target.result;
-            currentLogoPreview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    } else {
-        currentLogoPreview.style.display = 'none';
-    }
-}
+
 
 // Registration functions
 function openRegisterModal() {
@@ -755,7 +833,6 @@ function registerBusiness(e) {
     const newBusiness = {
         id: Date.now().toString(),
         name: businessName,
-        logo: '',
         items: []
     };
 
@@ -842,6 +919,47 @@ function openTransactionModal(itemId = null, type = 'incoming') {
         transactionCost.value = '';
     }
     transactionModal.style.display = 'block';
+}
+
+function autoSaveTransaction(itemId, type, quantity, cost, date, notes) {
+    const item = items.find(item => item.id === itemId);
+    if (!item) return;
+
+    // Initialize transactions array if not exists
+    if (!item.transactions) item.transactions = [];
+
+    // Add transaction
+    const transaction = {
+        id: Date.now().toString(),
+        type,
+        quantity,
+        cost: type === 'incoming' ? cost : 0,
+        date,
+        notes
+    };
+    item.transactions.push(transaction);
+
+    // Update stock based on transaction
+    if (type === 'incoming') {
+        item.stock += quantity;
+        // Calculate new average cost
+        calculateAverageCost(item);
+    } else if (type === 'outgoing') {
+        if (item.stock >= quantity) {
+            item.stock -= quantity;
+        } else {
+            alert('Stok tidak cukup!');
+            return;
+        }
+    }
+
+    saveItems();
+    renderItems();
+    renderGlobalTransactionHistory();
+    // Re-render stock cards if in stock card section
+    if (stockCardSection.style.display !== 'none') {
+        renderStockCards();
+    }
 }
 
 function saveTransaction(e) {
@@ -1007,7 +1125,7 @@ async function openCameraModal() {
     cameraModal.style.display = 'block';
     try {
         stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' }
+            video: true
         });
         cameraVideo.srcObject = stream;
     } catch (error) {
@@ -1076,7 +1194,7 @@ function startBarcodeScanner() {
             type: "LiveStream",
             target: barcodeScanner,
             constraints: {
-                facingMode: "environment"
+                video: true
             }
         },
         decoder: {
@@ -1102,8 +1220,9 @@ function startBarcodeScanner() {
         } else if (barcodeContext === 'transaction') {
             const item = items.find(item => item.code === code);
             if (item) {
-                openTransactionModal(item.id);
-                alert('Item ditemukan: ' + item.name + '. Modal transaksi dibuka.');
+                // Automatically create an outgoing transaction with quantity 1
+                autoSaveTransaction(item.id, 'outgoing', 1, 0, new Date().toISOString().split('T')[0], 'Auto transaction from barcode scan');
+                alert('Transaksi otomatis berhasil dibuat untuk item: ' + item.name + ' (Jumlah: 1)');
             } else {
                 alert('Item dengan kode barcode ' + code + ' tidak ditemukan!');
             }
