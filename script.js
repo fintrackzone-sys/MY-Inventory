@@ -1,8 +1,8 @@
-// Multi-tenant functionality
-let businesses = JSON.parse(localStorage.getItem('businesses')) || [];
-let users = JSON.parse(localStorage.getItem('users')) || [];
-let currentBusinessId = localStorage.getItem('currentBusinessId');
-let currentUserId = localStorage.getItem('currentUserId');
+ // Multi-tenant functionality with API
+const API_BASE_URL = 'http://localhost:3000/api';
+let currentBusiness = null;
+let currentUserId = null;
+let items = [];
 
 // Login functionality
 const loginSection = document.getElementById('login-section');
@@ -78,10 +78,6 @@ const stockSearchInput = document.getElementById('stock-search');
 const printStockBtn = document.getElementById('print-stock-btn');
 const stockCardContainer = document.getElementById('stock-card-container');
 
-// Current business data
-let currentBusiness = null;
-let items = [];
-
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
@@ -90,7 +86,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize the application
 function initializeApp() {
     // Check if user is already logged in with a business
-    if (localStorage.getItem('isLoggedIn') === 'true' && currentBusinessId) {
+    const token = localStorage.getItem('authToken');
+    const businessId = localStorage.getItem('currentBusinessId');
+    if (token && businessId) {
+        currentBusinessId = businessId;
         loadCurrentBusiness();
         showApp();
     } else {
@@ -101,29 +100,35 @@ function initializeApp() {
 
 
 // Login form submit
-loginForm.addEventListener('submit', function(e) {
+loginForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
-    // Find user with matching credentials
-    const user = users.find(u => u.username === username && u.password === password);
+    try {
+        const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+        });
 
-    if (user) {
-        currentUserId = user.id;
-        localStorage.setItem('currentUserId', currentUserId);
-        // Load the associated business
-        currentBusiness = businesses.find(b => b.id === user.businessId);
-        if (currentBusiness) {
-            currentBusinessId = currentBusiness.id;
-            localStorage.setItem('currentBusinessId', currentBusinessId);
-            localStorage.setItem('isLoggedIn', 'true');
-            items = currentBusiness.items || [];
+        const data = await response.json();
+
+        if (response.ok) {
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('currentBusinessId', data.businessId);
+            currentBusinessId = data.businessId;
+            await loadCurrentBusiness();
             showApp();
         } else {
+            loginError.textContent = data.message || 'Login failed';
             loginError.style.display = 'block';
         }
-    } else {
+    } catch (error) {
+        console.error('Login error:', error);
+        loginError.textContent = 'Network error. Please try again.';
         loginError.style.display = 'block';
     }
 });
@@ -143,10 +148,27 @@ function showApp() {
     renderItems();
 }
 
-function loadCurrentBusiness() {
-    currentBusiness = businesses.find(b => b.id === currentBusinessId);
-    if (currentBusiness) {
-        items = currentBusiness.items || [];
+async function loadCurrentBusiness() {
+    const token = localStorage.getItem('authToken');
+    if (!token || !currentBusinessId) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/business/${currentBusinessId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (response.ok) {
+            currentBusiness = await response.json();
+            items = currentBusiness.items || [];
+        } else {
+            console.error('Failed to load business');
+            logout();
+        }
+    } catch (error) {
+        console.error('Error loading business:', error);
+        logout();
     }
 }
 
@@ -243,7 +265,6 @@ savePhotoBtn.addEventListener('click', savePhoto);
 
 // Barcode event listeners
 document.getElementById('barcode-btn').addEventListener('click', () => openBarcodeModal('item-code'));
-document.getElementById('stock-barcode-btn').addEventListener('click', () => openBarcodeModal('transaction'));
 
 // Functions
 function handleFormSubmit(e) {
@@ -349,8 +370,36 @@ function resetForm() {
     cancelBtn.style.display = 'none';
 }
 
-function saveItems() {
-    saveCurrentBusinessData();
+async function saveItems() {
+    if (!currentBusiness || !currentBusinessId) return;
+
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        logout();
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/business/${currentBusinessId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                name: currentBusiness.name,
+                items: items,
+            }),
+        });
+
+        if (!response.ok) {
+            console.error('Failed to save items');
+            logout();
+        }
+    } catch (error) {
+        console.error('Error saving items:', error);
+        logout();
+    }
 }
 
 // Hamburger menu functions
@@ -738,14 +787,41 @@ function openEditBusinessModal() {
     }
 }
 
-function saveBusinessName(e) {
+async function saveBusinessName(e) {
     e.preventDefault();
     const newName = businessNameInput.value.trim();
-    if (newName && currentBusiness) {
-        currentBusiness.name = newName;
-        businessNameElement.textContent = newName;
-        saveBusinesses();
-        editBusinessModal.style.display = 'none';
+    if (newName && currentBusiness && currentBusinessId) {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            logout();
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/business/${currentBusinessId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    name: newName,
+                    items: items,
+                }),
+            });
+
+            if (response.ok) {
+                currentBusiness.name = newName;
+                businessNameElement.textContent = newName;
+                editBusinessModal.style.display = 'none';
+            } else {
+                console.error('Failed to save business name');
+                logout();
+            }
+        } catch (error) {
+            console.error('Error saving business name:', error);
+            logout();
+        }
     }
 }
 
@@ -776,6 +852,12 @@ function changePassword(e) {
     // Check if new password matches confirmation
     if (newPassword !== confirmNewPassword) {
         alert('Password baru dan konfirmasi password tidak cocok!');
+        return;
+    }
+
+    // validasi panjang password minimal 8 karakter
+    if (newPassword.length < 8) {
+        alert('Password harus minimal 8 karakter!');
         return;
     }
 
@@ -812,6 +894,12 @@ function registerBusiness(e) {
     // validasi konfirmasi password
     if (password !== passwordConfirm) {
         alert('Password dan konfirmasi password tidak cocok!');
+        return;
+    }
+
+    // validasi panjang password minimal 8 karakter
+    if (password.length < 8) {
+        alert('Password harus minimal 8 karakter!');
         return;
     }
 
@@ -868,8 +956,7 @@ function registerBusiness(e) {
 
 // Logout from hamburger
 function logout() {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('currentUserId');
+    localStorage.removeItem('authToken');
     localStorage.removeItem('currentBusinessId');
     currentUserId = null;
     currentBusinessId = null;
@@ -1188,24 +1275,34 @@ function openBarcodeModal(context = 'item-code') {
 }
 
 function startBarcodeScanner() {
+    // Clear any previous detected listeners to prevent duplicates
+    Quagga.off('detected');
+
     Quagga.init({
         inputStream: {
             name: "Live",
             type: "LiveStream",
             target: barcodeScanner,
             constraints: {
-                video: true
+                video: true // Simplified constraints for better compatibility
             }
         },
+        locator: {
+            patchSize: "medium",
+            halfSample: true
+        },
+        numOfWorkers: 2,
         decoder: {
-            readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
-        }
+            readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader", "upc_e_reader", "code_93_reader", "codabar_reader", "i2of5_reader", "2of5_reader", "code_32_reader"]
+        },
+        locate: true
     }, function(err) {
         if (err) {
             console.error(err);
             alert('Gagal memulai scanner barcode: ' + err.message);
             return;
         }
+        console.log('Barcode scanner started successfully');
         Quagga.start();
     });
 
@@ -1220,9 +1317,9 @@ function startBarcodeScanner() {
         } else if (barcodeContext === 'transaction') {
             const item = items.find(item => item.code === code);
             if (item) {
-                // Automatically create an outgoing transaction with quantity 1
-                autoSaveTransaction(item.id, 'outgoing', 1, 0, new Date().toISOString().split('T')[0], 'Auto transaction from barcode scan');
-                alert('Transaksi otomatis berhasil dibuat untuk item: ' + item.name + ' (Jumlah: 1)');
+                // Open transaction modal with the scanned item selected
+                openTransactionModal(item.id, 'outgoing');
+                alert('Item berhasil dipilih: ' + item.name + ' (' + item.code + ')');
             } else {
                 alert('Item dengan kode barcode ' + code + ' tidak ditemukan!');
             }
