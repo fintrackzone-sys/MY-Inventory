@@ -399,6 +399,12 @@ function showStockCards() {
     const transactionSection = renderTransactionSection();
     stockCardSection.appendChild(transactionSection);
 
+    // Add event listener for print transaction history button
+    const printTransactionHistoryBtn = document.getElementById('print-transaction-history-btn');
+    if (printTransactionHistoryBtn) {
+        printTransactionHistoryBtn.addEventListener('click', printTransactionHistory);
+    }
+
     // Add stock cards
     renderStockCards();
 
@@ -498,8 +504,8 @@ function renderStockOpnameHistory() {
         }
     });
 
-    // Sort transactions by date (newest first)
-    allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Sort transactions by date (oldest first)
+    allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     if (allTransactions.length === 0) {
         historyContainer.innerHTML = '<p>Belum ada transaksi stok.</p>';
@@ -551,6 +557,9 @@ function renderTransactionSection() {
         <div id="global-transaction-history">
             <!-- Global transaction history will be populated here -->
         </div>
+        <div class="transaction-history-controls" style="margin-top: 10px;">
+            <button id="print-transaction-history-btn" class="print-btn">Laporan Transaksi</button>
+        </div>
     `;
     return transactionSection;
 }
@@ -574,8 +583,8 @@ function renderGlobalTransactionHistory() {
         }
     });
 
-    // Sort transactions by date (newest first)
-    allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Sort transactions by date (oldest first)
+    allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     if (allTransactions.length === 0) {
         historyContainer.innerHTML = '<p>Belum ada transaksi.</p>';
@@ -695,6 +704,108 @@ function printInventoryReport() {
                     <td>${incoming}</td>
                     <td>${outgoing}</td>
                     <td>${finalStock}</td>
+                </tr>
+            `;
+        });
+
+        printContent += `
+                </tbody>
+            </table>
+        `;
+    }
+
+    printContent += `
+            <div class="footer">
+                <p>Dicetak dari Aplikasi Pencatatan Persediaan</p>
+            </div>
+        </body>
+        </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function printTransactionHistory() {
+    const printWindow = window.open('', '_blank');
+    const businessName = currentBusiness ? currentBusiness.name : 'Aplikasi Pencatatan Persediaan';
+    const currentDate = new Date().toLocaleDateString('id-ID');
+
+    // Collect all transactions from all items
+    let allTransactions = [];
+    items.forEach(item => {
+        if (item.transactions) {
+            item.transactions.forEach(transaction => {
+                allTransactions.push({
+                    ...transaction,
+                    itemName: item.name,
+                    itemCode: item.code
+                });
+            });
+        }
+    });
+
+    // Sort transactions by date (oldest first)
+    allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    let printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Laporan Transaksi - ${businessName}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { text-align: center; color: #ad1457; }
+                h2 { color: #c2185b; margin-top: 30px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .date { text-align: right; margin-bottom: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background-color: #fce4ec; font-weight: bold; color: #ad1457; }
+                .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #666; }
+                @media print { body { margin: 0; } }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>${businessName}</h1>
+                <h2>Laporan Transaksi</h2>
+            </div>
+            <div class="date">
+                Tanggal: ${currentDate}
+            </div>
+    `;
+
+    if (allTransactions.length === 0) {
+        printContent += '<p>Belum ada transaksi.</p>';
+    } else {
+        printContent += `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Kode Item</th>
+                        <th>Nama Item</th>
+                        <th>Masuk</th>
+                        <th>Keluar</th>
+                        <th>Harga</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        allTransactions.forEach(t => {
+            printContent += `
+                <tr>
+                    <td>${new Date(t.date).toLocaleDateString('id-ID')}</td>
+                    <td>${t.itemCode}</td>
+                    <td>${t.itemName}</td>
+                    <td>${t.type === 'incoming' ? t.quantity : '-'}</td>
+                    <td>${t.type === 'outgoing' ? t.quantity : '-'}</td>
+                    <td>${t.cost ? 'Rp ' + t.cost.toLocaleString() : '-'}</td>
+                    <td>${t.cost ? 'Rp ' + (t.quantity * t.cost).toLocaleString() : '-'}</td>
                 </tr>
             `;
         });
@@ -995,6 +1106,8 @@ function renderStockCards(filteredItems = items) {
 
     filteredItems.forEach(item => {
         const transactions = item.transactions || [];
+        // Sort transactions by date (oldest first)
+        transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
         const incoming = transactions.filter(t => t.type === 'incoming').reduce((sum, t) => sum + t.quantity, 0);
         const outgoing = transactions.filter(t => t.type === 'outgoing').reduce((sum, t) => sum + t.quantity, 0);
         const initialStock = item.stock - incoming + outgoing; // Calculate initial stock
