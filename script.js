@@ -1,8 +1,8 @@
- // Multi-tenant functionality with API
-const API_BASE_URL = 'http://localhost:3000/api';
-let currentBusiness = null;
-let currentUserId = null;
-let items = [];
+// Multi-tenant functionality
+let businesses = JSON.parse(localStorage.getItem('businesses')) || [];
+let users = JSON.parse(localStorage.getItem('users')) || [];
+let currentBusinessId = localStorage.getItem('currentBusinessId');
+let currentUserId = localStorage.getItem('currentUserId');
 
 // Login functionality
 const loginSection = document.getElementById('login-section');
@@ -78,6 +78,10 @@ const stockSearchInput = document.getElementById('stock-search');
 const printStockBtn = document.getElementById('print-stock-btn');
 const stockCardContainer = document.getElementById('stock-card-container');
 
+// Current business data
+let currentBusiness = null;
+let items = [];
+
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
@@ -86,10 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize the application
 function initializeApp() {
     // Check if user is already logged in with a business
-    const token = localStorage.getItem('authToken');
-    const businessId = localStorage.getItem('currentBusinessId');
-    if (token && businessId) {
-        currentBusinessId = businessId;
+    if (localStorage.getItem('isLoggedIn') === 'true' && currentBusinessId) {
         loadCurrentBusiness();
         showApp();
     } else {
@@ -100,35 +101,29 @@ function initializeApp() {
 
 
 // Login form submit
-loginForm.addEventListener('submit', async function(e) {
+loginForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
-    try {
-        const response = await fetch(`${API_BASE_URL}/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ username, password }),
-        });
+    // Find user with matching credentials
+    const user = users.find(u => u.username === username && u.password === password);
 
-        const data = await response.json();
-
-        if (response.ok) {
-            localStorage.setItem('authToken', data.token);
-            localStorage.setItem('currentBusinessId', data.businessId);
-            currentBusinessId = data.businessId;
-            await loadCurrentBusiness();
+    if (user) {
+        currentUserId = user.id;
+        localStorage.setItem('currentUserId', currentUserId);
+        // Load the associated business
+        currentBusiness = businesses.find(b => b.id === user.businessId);
+        if (currentBusiness) {
+            currentBusinessId = currentBusiness.id;
+            localStorage.setItem('currentBusinessId', currentBusinessId);
+            localStorage.setItem('isLoggedIn', 'true');
+            items = currentBusiness.items || [];
             showApp();
         } else {
-            loginError.textContent = data.message || 'Login failed';
             loginError.style.display = 'block';
         }
-    } catch (error) {
-        console.error('Login error:', error);
-        loginError.textContent = 'Network error. Please try again.';
+    } else {
         loginError.style.display = 'block';
     }
 });
@@ -148,27 +143,10 @@ function showApp() {
     renderItems();
 }
 
-async function loadCurrentBusiness() {
-    const token = localStorage.getItem('authToken');
-    if (!token || !currentBusinessId) return;
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/business/${currentBusinessId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-            },
-        });
-
-        if (response.ok) {
-            currentBusiness = await response.json();
-            items = currentBusiness.items || [];
-        } else {
-            console.error('Failed to load business');
-            logout();
-        }
-    } catch (error) {
-        console.error('Error loading business:', error);
-        logout();
+function loadCurrentBusiness() {
+    currentBusiness = businesses.find(b => b.id === currentBusinessId);
+    if (currentBusiness) {
+        items = currentBusiness.items || [];
     }
 }
 
@@ -213,6 +191,8 @@ logoutLink.addEventListener('click', logout);
 // Business edit modal event listeners
 editBusinessForm.addEventListener('submit', saveBusinessName);
 changePasswordForm.addEventListener('submit', changePassword);
+
+
 
 // Registration toggle event listeners
 loginToggle.addEventListener('click', function() {
@@ -265,6 +245,7 @@ savePhotoBtn.addEventListener('click', savePhoto);
 
 // Barcode event listeners
 document.getElementById('barcode-btn').addEventListener('click', () => openBarcodeModal('item-code'));
+document.getElementById('stock-barcode-btn').addEventListener('click', () => openBarcodeModal('transaction'));
 
 // Functions
 function handleFormSubmit(e) {
@@ -370,36 +351,8 @@ function resetForm() {
     cancelBtn.style.display = 'none';
 }
 
-async function saveItems() {
-    if (!currentBusiness || !currentBusinessId) return;
-
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        logout();
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/business/${currentBusinessId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-                name: currentBusiness.name,
-                items: items,
-            }),
-        });
-
-        if (!response.ok) {
-            console.error('Failed to save items');
-            logout();
-        }
-    } catch (error) {
-        console.error('Error saving items:', error);
-        logout();
-    }
+function saveItems() {
+    saveCurrentBusinessData();
 }
 
 // Hamburger menu functions
@@ -437,24 +390,6 @@ function showStockCards() {
     // Clear existing content
     stockCardSection.innerHTML = '';
 
-    // Add controls
-    const controlsDiv = document.createElement('div');
-    controlsDiv.className = 'stock-card-controls';
-    controlsDiv.innerHTML = `
-        <input type="text" id="stock-search" placeholder="Cari item...">
-        <button id="stock-barcode-btn" class="action-btn" title="Scan Barcode untuk Transaksi" style="padding: 10px 15px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer;">📱 Scan Barcode</button>
-    `;
-    stockCardSection.appendChild(controlsDiv);
-
-    // Add stock card container
-    const containerDiv = document.createElement('div');
-    containerDiv.id = 'stock-card-container';
-    stockCardSection.appendChild(containerDiv);
-
-    // Re-attach event listeners
-    document.getElementById('stock-search').addEventListener('input', filterStockCards);
-    document.getElementById('stock-barcode-btn').addEventListener('click', () => openBarcodeModal('transaction'));
-
     // Add separate transaction section
     const transactionSection = renderTransactionSection();
     stockCardSection.appendChild(transactionSection);
@@ -474,16 +409,12 @@ function renderStockOpname() {
     opnameSection.className = 'stock-opname-section';
     opnameSection.innerHTML = `
         <h2>Persediaan Barang</h2>
-        <button id="print-stock-btn" class="print-btn">Print Kartu Stok</button>
         <h3>Daftar Item Stok</h3>
         <div id="stock-items-list">
             <!-- Stock items list will be populated here -->
         </div>
     `;
     stockCardSection.appendChild(opnameSection);
-
-    // Add event listener for print button
-    document.getElementById('print-stock-btn').addEventListener('click', printStockCards);
 
     // Render stock items list
     renderStockItemsList();
@@ -680,102 +611,7 @@ function filterStockCards() {
 }
 
 function printStockCards() {
-    // Create print content for stock opname report
-    const printWindow = window.open('', '_blank');
-    const currentDate = new Date().toLocaleDateString('id-ID');
-
-    let printContent = `
-        <html>
-        <head>
-            <title>Laporan Persediaan Barang</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                h1 { text-align: center; margin-bottom: 10px; }
-                .header { text-align: center; margin-bottom: 30px; }
-                .business-name { font-size: 18px; font-weight: bold; }
-                .date { font-size: 14px; margin-top: 5px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #f2f2f2; font-weight: bold; }
-                .total-row { font-weight: bold; background-color: #e9e9e9; }
-                @media print {
-                    body { margin: 0; }
-                    .no-print { display: none; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <div class="business-name">${currentBusiness ? currentBusiness.name : 'Nama Usaha'}</div>
-                <div class="date">Tanggal: ${currentDate}</div>
-                <h1>Persediaan Barang</h1>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>No</th>
-                        <th>Kode Item</th>
-                        <th>Nama Item</th>
-                        <th>Persediaan Awal</th>
-                        <th>Jumlah Masuk</th>
-                        <th>Jumlah Keluar</th>
-                        <th>Persediaan Terakhir</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    let totalInitial = 0;
-    let totalIncoming = 0;
-    let totalOutgoing = 0;
-    let totalFinal = 0;
-
-    items.forEach((item, index) => {
-        const transactions = item.transactions || [];
-        const incoming = transactions.filter(t => t.type === 'incoming').reduce((sum, t) => sum + t.quantity, 0);
-        const outgoing = transactions.filter(t => t.type === 'outgoing').reduce((sum, t) => sum + t.quantity, 0);
-        const initialStock = item.stock - incoming + outgoing;
-        const finalStock = item.stock;
-
-        totalInitial += initialStock;
-        totalIncoming += incoming;
-        totalOutgoing += outgoing;
-        totalFinal += finalStock;
-
-        printContent += `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${item.code}</td>
-                <td>${item.name}</td>
-                <td>${initialStock}</td>
-                <td>${incoming}</td>
-                <td>${outgoing}</td>
-                <td>${finalStock}</td>
-            </tr>
-        `;
-    });
-
-    // Add total row
-    printContent += `
-            <tr class="total-row">
-                <td colspan="3"><strong>TOTAL</strong></td>
-                <td><strong>${totalInitial}</strong></td>
-                <td><strong>${totalIncoming}</strong></td>
-                <td><strong>${totalOutgoing}</strong></td>
-                <td><strong>${totalFinal}</strong></td>
-            </tr>
-        </tbody>
-    </table>
-    <div style="margin-top: 30px; text-align: center; font-size: 12px;">
-        <p>Dicetak pada: ${new Date().toLocaleString('id-ID')}</p>
-    </div>
-</body>
-</html>
-    `;
-
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.print();
+    window.print();
 }
 
 // Business edit functions
@@ -787,41 +623,14 @@ function openEditBusinessModal() {
     }
 }
 
-async function saveBusinessName(e) {
+function saveBusinessName(e) {
     e.preventDefault();
     const newName = businessNameInput.value.trim();
-    if (newName && currentBusiness && currentBusinessId) {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-            logout();
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/business/${currentBusinessId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    name: newName,
-                    items: items,
-                }),
-            });
-
-            if (response.ok) {
-                currentBusiness.name = newName;
-                businessNameElement.textContent = newName;
-                editBusinessModal.style.display = 'none';
-            } else {
-                console.error('Failed to save business name');
-                logout();
-            }
-        } catch (error) {
-            console.error('Error saving business name:', error);
-            logout();
-        }
+    if (newName && currentBusiness) {
+        currentBusiness.name = newName;
+        businessNameElement.textContent = newName;
+        saveBusinesses();
+        editBusinessModal.style.display = 'none';
     }
 }
 
@@ -852,12 +661,6 @@ function changePassword(e) {
     // Check if new password matches confirmation
     if (newPassword !== confirmNewPassword) {
         alert('Password baru dan konfirmasi password tidak cocok!');
-        return;
-    }
-
-    // validasi panjang password minimal 8 karakter
-    if (newPassword.length < 8) {
-        alert('Password harus minimal 8 karakter!');
         return;
     }
 
@@ -894,12 +697,6 @@ function registerBusiness(e) {
     // validasi konfirmasi password
     if (password !== passwordConfirm) {
         alert('Password dan konfirmasi password tidak cocok!');
-        return;
-    }
-
-    // validasi panjang password minimal 8 karakter
-    if (password.length < 8) {
-        alert('Password harus minimal 8 karakter!');
         return;
     }
 
@@ -956,7 +753,8 @@ function registerBusiness(e) {
 
 // Logout from hamburger
 function logout() {
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('currentUserId');
     localStorage.removeItem('currentBusinessId');
     currentUserId = null;
     currentBusinessId = null;
@@ -1006,47 +804,6 @@ function openTransactionModal(itemId = null, type = 'incoming') {
         transactionCost.value = '';
     }
     transactionModal.style.display = 'block';
-}
-
-function autoSaveTransaction(itemId, type, quantity, cost, date, notes) {
-    const item = items.find(item => item.id === itemId);
-    if (!item) return;
-
-    // Initialize transactions array if not exists
-    if (!item.transactions) item.transactions = [];
-
-    // Add transaction
-    const transaction = {
-        id: Date.now().toString(),
-        type,
-        quantity,
-        cost: type === 'incoming' ? cost : 0,
-        date,
-        notes
-    };
-    item.transactions.push(transaction);
-
-    // Update stock based on transaction
-    if (type === 'incoming') {
-        item.stock += quantity;
-        // Calculate new average cost
-        calculateAverageCost(item);
-    } else if (type === 'outgoing') {
-        if (item.stock >= quantity) {
-            item.stock -= quantity;
-        } else {
-            alert('Stok tidak cukup!');
-            return;
-        }
-    }
-
-    saveItems();
-    renderItems();
-    renderGlobalTransactionHistory();
-    // Re-render stock cards if in stock card section
-    if (stockCardSection.style.display !== 'none') {
-        renderStockCards();
-    }
 }
 
 function saveTransaction(e) {
@@ -1212,7 +969,7 @@ async function openCameraModal() {
     cameraModal.style.display = 'block';
     try {
         stream = await navigator.mediaDevices.getUserMedia({
-            video: true
+            video: { facingMode: 'environment' }
         });
         cameraVideo.srcObject = stream;
     } catch (error) {
@@ -1275,34 +1032,24 @@ function openBarcodeModal(context = 'item-code') {
 }
 
 function startBarcodeScanner() {
-    // Clear any previous detected listeners to prevent duplicates
-    Quagga.off('detected');
-
     Quagga.init({
         inputStream: {
             name: "Live",
             type: "LiveStream",
             target: barcodeScanner,
             constraints: {
-                video: true // Simplified constraints for better compatibility
+                facingMode: "environment"
             }
         },
-        locator: {
-            patchSize: "medium",
-            halfSample: true
-        },
-        numOfWorkers: 2,
         decoder: {
-            readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader", "upc_e_reader", "code_93_reader", "codabar_reader", "i2of5_reader", "2of5_reader", "code_32_reader"]
-        },
-        locate: true
+            readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
+        }
     }, function(err) {
         if (err) {
             console.error(err);
             alert('Gagal memulai scanner barcode: ' + err.message);
             return;
         }
-        console.log('Barcode scanner started successfully');
         Quagga.start();
     });
 
@@ -1317,9 +1064,8 @@ function startBarcodeScanner() {
         } else if (barcodeContext === 'transaction') {
             const item = items.find(item => item.code === code);
             if (item) {
-                // Open transaction modal with the scanned item selected
-                openTransactionModal(item.id, 'outgoing');
-                alert('Item berhasil dipilih: ' + item.name + ' (' + item.code + ')');
+                openTransactionModal(item.id);
+                alert('Item ditemukan: ' + item.name + '. Modal transaksi dibuka.');
             } else {
                 alert('Item dengan kode barcode ' + code + ' tidak ditemukan!');
             }

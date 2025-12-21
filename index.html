@@ -86,12 +86,12 @@
                 <div class="form-group">
                     <label for="item-code">Kode Item:</label>
                     <input type="text" id="item-code" required>
-                    <button type="button" id="barcode-btn" class="action-btn" title="Scan Barcode" style="padding: 8px 168px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;">📱</button>
+                    <button type="button" id="barcode-btn" class="action-btn" title="Scan Barcode" style="padding: 8px 169px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top:5px; margin-left: 5px;">📱</button>
                 </div>
                 <div class="form-group">
                     <label for="item-name">Nama Item:</label>
                     <input type="text" id="item-name" required>
-                    <button type="button" id="camera-btn" class="action-btn" title="Ambil Foto" style="padding: 8px 165px; background: linear-gradient(135deg, #2196f3, #1976d2); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;">📷</button>
+                    <button type="button" id="camera-btn" class="action-btn" title="Ambil Foto" style="padding: 8px 167px; background: linear-gradient(135deg, #2196f3, #1976d2); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; margin-left: 5px;">📷</button>
                 </div>
                 <div class="form-group">
                     <label for="item-stock">Stok:</label>
@@ -177,11 +177,7 @@
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Tambah Transaksi</h2>
-            <form id="transaction-form" class="transaction-form">
-                <div class="form-group">
-                    <label for="transaction-date">Tanggal:</label>
-                    <input type="date" id="transaction-date" required>
-                </div>
+            <form id="transaction-form">
                 <div class="form-group">
                     <label for="transaction-item-select">Pilih Item:</label>
                     <select id="transaction-item-select" required>
@@ -202,6 +198,10 @@
                 <div class="form-group" id="cost-field" style="display: none;">
                     <label for="transaction-cost">Harga per Unit:</label>
                     <input type="number" id="transaction-cost" min="0" step="0.01" placeholder="Harga per unit">
+                </div>
+                <div class="form-group">
+                    <label for="transaction-date">Tanggal:</label>
+                    <input type="date" id="transaction-date" required>
                 </div>
                 <div class="form-group">
                     <label for="transaction-notes">Catatan:</label>
