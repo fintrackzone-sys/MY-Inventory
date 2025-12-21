@@ -1,8 +1,9 @@
-// Multi-tenant functionality
-let businesses = JSON.parse(localStorage.getItem('businesses')) || [];
-let users = JSON.parse(localStorage.getItem('users')) || [];
-let currentBusinessId = localStorage.getItem('currentBusinessId');
-let currentUserId = localStorage.getItem('currentUserId');
+// Multi-tenant functionality with API
+const API_BASE = 'http://localhost:3001/api';
+let businesses = [];
+let users = [];
+let currentBusinessId = null;
+let currentUserId = null;
 
 // Login functionality
 const loginSection = document.getElementById('login-section');
@@ -101,29 +102,36 @@ function initializeApp() {
 
 
 // Login form submit
-loginForm.addEventListener('submit', function(e) {
+loginForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
-    // Find user with matching credentials
-    const user = users.find(u => u.username === username && u.password === password);
+    try {
+        const response = await fetch(`${API_BASE}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+        });
+        const data = await response.json();
 
-    if (user) {
-        currentUserId = user.id;
-        localStorage.setItem('currentUserId', currentUserId);
-        // Load the associated business
-        currentBusiness = businesses.find(b => b.id === user.businessId);
-        if (currentBusiness) {
-            currentBusinessId = currentBusiness.id;
+        if (response.ok) {
+            currentUserId = data.userId;
+            currentBusinessId = data.businessId;
+            currentBusiness = data.business;
+            items = data.business.items || [];
+
+            localStorage.setItem('currentUserId', currentUserId);
             localStorage.setItem('currentBusinessId', currentBusinessId);
             localStorage.setItem('isLoggedIn', 'true');
-            items = currentBusiness.items || [];
             showApp();
         } else {
             loginError.style.display = 'block';
         }
-    } else {
+    } catch (error) {
+        console.error('Login error:', error);
         loginError.style.display = 'block';
     }
 });
@@ -143,25 +151,89 @@ function showApp() {
     renderItems();
 }
 
-function loadCurrentBusiness() {
-    currentBusiness = businesses.find(b => b.id === currentBusinessId);
-    if (currentBusiness) {
-        items = currentBusiness.items || [];
+async function loadCurrentBusiness() {
+    try {
+        const response = await fetch(`${API_BASE}/businesses/${currentBusinessId}`);
+        if (response.ok) {
+            currentBusiness = await response.json();
+            items = currentBusiness.items || [];
+        } else {
+            console.error('Error loading business:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error loading business:', error);
     }
 }
 
-function saveBusinesses() {
-    localStorage.setItem('businesses', JSON.stringify(businesses));
+async function saveBusinesses() {
+    try {
+        const businessData = { ...currentBusiness };
+        delete businessData.id; // Remove id as it's the document ID
+        const response = await fetch(`${API_BASE}/businesses/${currentBusinessId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(businessData),
+        });
+        if (!response.ok) {
+            console.error('Error saving business data to API:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error saving business data to API:', error);
+    }
 }
 
-function saveUsers() {
-    localStorage.setItem('users', JSON.stringify(users));
+async function saveUsers(userData, userId) {
+    try {
+        const dataToSend = { ...userData };
+        delete dataToSend.id; // Remove id as it's the document ID
+        const response = await fetch(`${API_BASE}/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dataToSend),
+        });
+        if (!response.ok) {
+            console.error('Error saving user data to API:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error saving user data to API:', error);
+    }
 }
 
-function saveCurrentBusinessData() {
+async function loadCurrentUser() {
+    try {
+        const response = await fetch(`${API_BASE}/users/${currentUserId}`);
+        if (response.ok) {
+            return await response.json();
+        } else {
+            console.error('Error loading user:', response.statusText);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error loading user:', error);
+        return null;
+    }
+}
+
+async function saveCurrentBusinessData() {
     if (currentBusiness) {
-        currentBusiness.items = items;
-        saveBusinesses();
+        try {
+            const response = await fetch(`${API_BASE}/businesses/${currentBusinessId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ items: items }),
+            });
+            if (!response.ok) {
+                console.error('Error saving current business data to API:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error saving current business data to API:', error);
+        }
     }
 }
 
@@ -211,7 +283,59 @@ registerToggle.addEventListener('click', function() {
     loginError.style.display = 'none';
 });
 
-registerForm.addEventListener('submit', registerBusiness);
+registerForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const businessName = registerBusinessNameInput.value.trim();
+    const username = registerUsernameInput.value.trim();
+    const password = registerPasswordInput.value.trim();
+    const passwordConfirm = registerPasswordConfirmInput.value.trim();
+
+    if (!businessName || !username || !password || !passwordConfirm) {
+        alert('Mohon isi semua field!');
+        return;
+    }
+
+    // validasi konfirmasi password
+    if (password !== passwordConfirm) {
+        alert('Password dan konfirmasi password tidak cocok!');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ businessName, username, password }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Reset form and close register panel
+            registerForm.reset();
+            if (registerModal) registerModal.style.display = 'none';
+
+            // Prefill login form so the newly registered user can immediately login
+            document.getElementById('username').value = username;
+            document.getElementById('password').value = '';
+
+            // Switch UI to login view
+            loginToggle.classList.add('active');
+            registerToggle.classList.remove('active');
+            loginFormContainer.style.display = 'block';
+            registerFormContainer.style.display = 'none';
+
+            alert('Akun berhasil dibuat. Silakan login menggunakan username dan password yang anda buat.');
+        } else {
+            alert(data.message || 'Registrasi gagal!');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        alert('Terjadi kesalahan saat registrasi!');
+    }
+});
 
 // Transaction modal event listeners
 transactionForm.addEventListener('submit', saveTransaction);
@@ -849,7 +973,7 @@ function saveBusinessName(e) {
     }
 }
 
-function changePassword(e) {
+async function changePassword(e) {
     e.preventDefault();
     const currentPassword = document.getElementById('current-password').value;
     const newPassword = document.getElementById('new-password').value;
@@ -860,8 +984,8 @@ function changePassword(e) {
         return;
     }
 
-    // Find current user
-    const currentUser = users.find(u => u.id === currentUserId);
+    // Load current user
+    const currentUser = await loadCurrentUser();
     if (!currentUser) {
         alert('User tidak ditemukan!');
         return;
@@ -881,7 +1005,7 @@ function changePassword(e) {
 
     // Update password
     currentUser.password = newPassword;
-    saveUsers();
+    await saveUsers(currentUser, currentUserId);
 
     // Clear form and close modal
     changePasswordForm.reset();
