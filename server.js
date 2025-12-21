@@ -144,7 +144,7 @@ app.post('/api/login', (req, res) => {
                 if (err) {
                     res.status(500).json({ error: 'Database error' });
                 } else {
-                    res.json({ user, business });
+                    res.json({ userId: user.id, businessId: user.business_id, user, business });
                 }
             });
         }

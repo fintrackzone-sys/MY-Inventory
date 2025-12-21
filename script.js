@@ -1,5 +1,5 @@
 // Multi-tenant functionality with API
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'http://172.20.20.195:3001/api';
 let businesses = [];
 let users = [];
 let currentBusinessId = null;
@@ -90,8 +90,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Initialize the application
 function initializeApp() {
+    // Load stored values from localStorage
+    currentUserId = localStorage.getItem('currentUserId');
+    currentBusinessId = localStorage.getItem('currentBusinessId');
+
     // Check if user is already logged in with a business
-    if (localStorage.getItem('isLoggedIn') === 'true' && currentBusinessId) {
+    if (localStorage.getItem('isLoggedIn') === 'true' && currentBusinessId && currentUserId) {
         loadCurrentBusiness();
         showApp();
     } else {
