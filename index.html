@@ -179,10 +179,17 @@
             <h2>Tambah Transaksi</h2>
             <form id="transaction-form">
                 <div class="form-group">
+                    <label for="transaction-date">Tanggal:</label>
+                    <input type="date" id="transaction-date" required>
+                </div>
+                <div class="form-group">
                     <label for="transaction-item-select">Pilih Item:</label>
                     <select id="transaction-item-select" required>
                         <option value="">Pilih Item</option>
                     </select>
+                </div>
+                <div class="form-group" id="item-buttons" style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" id="transaction-barcode-btn" class="action-btn" title="Scan Barcode untuk Pilih Item" style="padding: 8px 15px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer;">📱</button>
                 </div>
                 <div class="form-group">
                     <label for="transaction-type">Tipe Transaksi:</label>
@@ -198,10 +205,6 @@
                 <div class="form-group" id="cost-field" style="display: none;">
                     <label for="transaction-cost">Harga per Unit:</label>
                     <input type="number" id="transaction-cost" min="0" step="0.01" placeholder="Harga per unit">
-                </div>
-                <div class="form-group">
-                    <label for="transaction-date">Tanggal:</label>
-                    <input type="date" id="transaction-date" required>
                 </div>
                 <div class="form-group">
                     <label for="transaction-notes">Catatan:</label>

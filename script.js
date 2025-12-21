@@ -229,12 +229,7 @@ printStockBtn.addEventListener('click', printStockCards);
 
 // Transaction type change listener
 transactionType.addEventListener('change', function() {
-    if (this.value === 'incoming') {
-        costField.style.display = 'block';
-    } else {
-        costField.style.display =  'none';
-        transactionCost.value = '';
-    }
+    costField.style.display = 'block';
 });
 
 // Camera event listeners
@@ -246,6 +241,7 @@ savePhotoBtn.addEventListener('click', savePhoto);
 // Barcode event listeners
 document.getElementById('barcode-btn').addEventListener('click', () => openBarcodeModal('item-code'));
 document.getElementById('stock-barcode-btn').addEventListener('click', () => openBarcodeModal('transaction'));
+document.getElementById('transaction-barcode-btn').addEventListener('click', () => openBarcodeModal('transaction-select'));
 
 // Functions
 function handleFormSubmit(e) {
@@ -778,31 +774,25 @@ function openTransactionModal(itemId = null, type = 'incoming') {
         transactionItemSelect.appendChild(option);
     });
 
-    // Add button next to item select (available for both incoming and outgoing)
+    // Add button to item-buttons div (available for both incoming and outgoing)
     let addItemBtn = document.getElementById('add-item-from-transaction-btn');
     if (!addItemBtn) {
         addItemBtn = document.createElement('button');
         addItemBtn.id = 'add-item-from-transaction-btn';
         addItemBtn.type = 'button';
         addItemBtn.textContent = 'Tambah Item Baru';
-        addItemBtn.style.marginLeft = '10px';
         addItemBtn.onclick = function() {
             transactionModal.style.display = 'none';
             showDashboard();
             document.getElementById('form-section').scrollIntoView({ behavior: 'smooth' });
         };
-        transactionItemSelect.parentNode.insertBefore(addItemBtn, transactionItemSelect.nextSibling);
+        document.getElementById('item-buttons').appendChild(addItemBtn);
     }
 
     transactionType.value = type;
     transactionDate.value = new Date().toISOString().split('T')[0];
-    // Show cost field if incoming
-    if (type === 'incoming') {
-        costField.style.display = 'block';
-    } else {
-        costField.style.display = 'none';
-        transactionCost.value = '';
-    }
+    // Always show cost field for both incoming and outgoing
+    costField.style.display = 'block';
     transactionModal.style.display = 'block';
 }
 
@@ -825,8 +815,9 @@ function saveTransaction(e) {
         return;
     }
 
-    if (type === 'incoming' && cost <= 0) {
-        alert('Harga per unit harus lebih dari 0 untuk barang masuk!');
+    // Cost is now required for both incoming and outgoing transactions
+    if (cost <= 0) {
+        alert('Harga per unit harus lebih dari 0!');
         return;
     }
 
@@ -836,24 +827,25 @@ function saveTransaction(e) {
     // Initialize transactions array if not exists
     if (!item.transactions) item.transactions = [];
 
-    // Add transaction
+    // Create transaction object
     const transaction = {
         id: Date.now().toString(),
         type,
         quantity,
-        cost: type === 'incoming' ? cost : 0,
+        cost,
         date,
         notes
     };
-    item.transactions.push(transaction);
 
-    // Update stock based on transaction
+    // Update stock based on transaction and add to history only if successful
     if (type === 'incoming') {
+        item.transactions.push(transaction);
         item.stock += quantity;
         // Calculate new average cost
         calculateAverageCost(item);
     } else if (type === 'outgoing') {
         if (item.stock >= quantity) {
+            item.transactions.push(transaction);
             item.stock -= quantity;
         } else {
             alert('Stok tidak cukup!');
@@ -1066,6 +1058,14 @@ function startBarcodeScanner() {
             if (item) {
                 openTransactionModal(item.id);
                 alert('Item ditemukan: ' + item.name + '. Modal transaksi dibuka.');
+            } else {
+                alert('Item dengan kode barcode ' + code + ' tidak ditemukan!');
+            }
+        } else if (barcodeContext === 'transaction-select') {
+            const item = items.find(item => item.code === code);
+            if (item) {
+                transactionItemSelect.value = item.id;
+                alert('Item dipilih: ' + item.name + ' (' + item.code + ')');
             } else {
                 alert('Item dengan kode barcode ' + code + ' tidak ditemukan!');
             }
