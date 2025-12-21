@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -9,67 +10,145 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(bodyParser.json());
 
-// In-memory storage (in production, use a database)
-let businesses = [];
-let users = [];
-
 // Routes
 app.get('/api/businesses', (req, res) => {
-    res.json(businesses);
+    db.getAllBusinesses((err, businesses) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else {
+            res.json(businesses);
+        }
+    });
 });
 
 app.post('/api/businesses', (req, res) => {
-    const business = req.body;
-    business.id = Date.now().toString();
-    businesses.push(business);
-    res.json(business);
+    const { name } = req.body;
+    db.createBusiness(name, (err, business) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else {
+            res.json(business);
+        }
+    });
 });
 
 app.get('/api/users', (req, res) => {
-    res.json(users);
+    db.getAllUsers((err, users) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else {
+            res.json(users);
+        }
+    });
 });
 
 app.post('/api/users', (req, res) => {
-    const user = req.body;
-    user.id = Date.now().toString();
-    users.push(user);
-    res.json(user);
+    const { username, password, businessId } = req.body;
+    db.createUser(username, password, businessId, (err, user) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else {
+            res.json(user);
+        }
+    });
+});
+
+// Registration endpoint
+app.post('/api/register', (req, res) => {
+    const { businessName, username, password } = req.body;
+    // First create business
+    db.createBusiness(businessName, (err, business) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else {
+            // Then create user linked to the business
+            db.createUser(username, password, business.id, (err, user) => {
+                if (err) {
+                    res.status(500).json({ error: 'Database error' });
+                } else {
+                    res.json({ message: 'Registration successful', user, business });
+                }
+            });
+        }
+    });
+});
+
+// Get business by ID
+app.get('/api/businesses/:id', (req, res) => {
+    const id = req.params.id;
+    db.getBusinessById(id, (err, business) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else if (!business) {
+            res.status(404).json({ error: 'Business not found' });
+        } else {
+            res.json(business);
+        }
+    });
 });
 
 app.put('/api/businesses/:id', (req, res) => {
     const id = req.params.id;
-    const updatedBusiness = req.body;
-    const index = businesses.findIndex(b => b.id === id);
-    if (index !== -1) {
-        businesses[index] = { ...businesses[index], ...updatedBusiness };
-        res.json(businesses[index]);
-    } else {
-        res.status(404).json({ error: 'Business not found' });
+    const updates = req.body;
+    // For items, store as JSON string
+    if (updates.items) {
+        updates.items = JSON.stringify(updates.items);
     }
+    db.updateBusiness(id, updates, (err, changes) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else if (changes === 0) {
+            res.status(404).json({ error: 'Business not found' });
+        } else {
+            db.getBusinessById(id, (err, business) => {
+                if (err) {
+                    res.status(500).json({ error: 'Database error' });
+                } else {
+                    res.json(business);
+                }
+            });
+        }
+    });
 });
 
 app.put('/api/users/:id', (req, res) => {
     const id = req.params.id;
-    const updatedUser = req.body;
-    const index = users.findIndex(u => u.id === id);
-    if (index !== -1) {
-        users[index] = { ...users[index], ...updatedUser };
-        res.json(users[index]);
-    } else {
-        res.status(404).json({ error: 'User not found' });
-    }
+    const updates = req.body;
+    db.updateUser(id, updates, (err, changes) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else if (changes === 0) {
+            res.status(404).json({ error: 'User not found' });
+        } else {
+            db.getUserById(id, (err, user) => {
+                if (err) {
+                    res.status(500).json({ error: 'Database error' });
+                } else {
+                    res.json(user);
+                }
+            });
+        }
+    });
 });
 
 // Login endpoint
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-        const business = businesses.find(b => b.id === user.businessId);
-        res.json({ user, business });
-    } else {
-        res.status(401).json({ error: 'Invalid credentials' });
-    }
+    db.getUserByUsername(username, (err, user) => {
+        if (err) {
+            res.status(500).json({ error: 'Database error' });
+        } else if (!user || user.password !== password) {
+            res.status(401).json({ error: 'Invalid credentials' });
+        } else {
+            db.getBusinessById(user.business_id, (err, business) => {
+                if (err) {
+                    res.status(500).json({ error: 'Database error' });
+                } else {
+                    res.json({ user, business });
+                }
+            });
+        }
+    });
 });
 
 app.listen(PORT, () => {
