@@ -409,8 +409,14 @@ function renderStockOpname() {
         <div id="stock-items-list">
             <!-- Stock items list will be populated here -->
         </div>
+        <div class="stock-opname-controls" style="margin-top: 20px; text-align: center;">
+            <button id="print-inventory-btn" class="print-btn">Print Persediaan</button>
+        </div>
     `;
     stockCardSection.appendChild(opnameSection);
+
+    // Add event listener for print button
+    document.getElementById('print-inventory-btn').addEventListener('click', printInventory);
 
     // Render stock items list
     renderStockItemsList();
@@ -608,6 +614,161 @@ function filterStockCards() {
 
 function printStockCards() {
     window.print();
+}
+
+function printInventory() {
+    // Create a new window for the report
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+
+    // Generate report content
+    const reportContent = generateInventoryReport();
+
+    // Write the report to the new window
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Laporan Persediaan Barang</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    margin: 20px;
+                    line-height: 1.6;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    border-bottom: 2px solid #333;
+                    padding-bottom: 20px;
+                }
+                .header h1 {
+                    margin: 0;
+                    color: #333;
+                }
+                .header p {
+                    margin: 5px 0;
+                    color: #666;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 20px;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                }
+                .summary {
+                    margin-top: 30px;
+                    padding: 15px;
+                    background-color: #f9f9f9;
+                    border: 1px solid #ddd;
+                }
+                .summary h3 {
+                    margin-top: 0;
+                    color: #333;
+                }
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            ${reportContent}
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+
+    // Wait for content to load then print
+    printWindow.onload = function() {
+        printWindow.print();
+        printWindow.close();
+    };
+}
+
+function generateInventoryReport() {
+    const businessName = currentBusiness ? currentBusiness.name : 'Nama Usaha';
+    const currentDate = new Date().toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    let totalItems = 0;
+    let totalInitialStock = 0;
+    let totalIncoming = 0;
+    let totalOutgoing = 0;
+    let totalFinalStock = 0;
+
+    const tableRows = items.map(item => {
+        const transactions = item.transactions || [];
+        const incoming = transactions.filter(t => t.type === 'incoming').reduce((sum, t) => sum + t.quantity, 0);
+        const outgoing = transactions.filter(t => t.type === 'outgoing').reduce((sum, t) => sum + t.quantity, 0);
+        const initialStock = item.stock - incoming + outgoing;
+        const finalStock = item.stock;
+
+        totalItems++;
+        totalInitialStock += initialStock;
+        totalIncoming += incoming;
+        totalOutgoing += outgoing;
+        totalFinalStock += finalStock;
+
+        return `
+            <tr>
+                <td>${item.code}</td>
+                <td>${item.name}</td>
+                <td style="text-align: center;">${initialStock}</td>
+                <td style="text-align: center;">${incoming}</td>
+                <td style="text-align: center;">${outgoing}</td>
+                <td style="text-align: center;">${finalStock}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const summarySection = `
+        <div class="summary">
+            <h3>Ringkasan Persediaan</h3>
+            <p><strong>Total Item:</strong> ${totalItems}</p>
+            <p><strong>Total Persediaan Awal:</strong> ${totalInitialStock}</p>
+            <p><strong>Total Masuk:</strong> ${totalIncoming}</p>
+            <p><strong>Total Keluar:</strong> ${totalOutgoing}</p>
+            <p><strong>Total Persediaan Akhir:</strong> ${totalFinalStock}</p>
+        </div>
+    `;
+
+    return `
+        <div class="header">
+            <h1>Laporan Persediaan Barang</h1>
+            <p><strong>Usaha:</strong> ${businessName}</p>
+            <p><strong>Tanggal Laporan:</strong> ${currentDate}</p>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Kode Item</th>
+                    <th>Nama Item</th>
+                    <th>Persediaan Awal</th>
+                    <th>Jumlah Masuk</th>
+                    <th>Jumlah Keluar</th>
+                    <th>Persediaan Akhir</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+
+        ${summarySection}
+    `;
 }
 
 // Business edit functions
