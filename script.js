@@ -410,7 +410,7 @@ function renderStockOpname() {
             <!-- Stock items list will be populated here -->
         </div>
         <div class="stock-opname-controls" style="margin-top: 20px; text-align: center;">
-            <button id="print-inventory-btn" class="print-btn">Print Persediaan</button>
+            <button id="print-inventory-btn" class="print-btn">Laporan Persediaan</button>
         </div>
     `;
     stockCardSection.appendChild(opnameSection);
@@ -617,81 +617,70 @@ function printStockCards() {
 }
 
 function printInventory() {
-    // Create a new window for the report
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-
     // Generate report content
     const reportContent = generateInventoryReport();
 
-    // Write the report to the new window
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Laporan Persediaan Barang</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    margin: 20px;
-                    line-height: 1.6;
-                }
-                .header {
-                    text-align: center;
-                    margin-bottom: 30px;
-                    border-bottom: 2px solid #333;
-                    padding-bottom: 20px;
-                }
-                .header h1 {
-                    margin: 0;
-                    color: #333;
-                }
-                .header p {
-                    margin: 5px 0;
-                    color: #666;
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 20px;
-                }
-                th, td {
-                    border: 1px solid #ddd;
-                    padding: 8px;
-                    text-align: left;
-                }
-                th {
-                    background-color: #f2f2f2;
-                    font-weight: bold;
-                }
-                .summary {
-                    margin-top: 30px;
-                    padding: 15px;
-                    background-color: #f9f9f9;
-                    border: 1px solid #ddd;
-                }
-                .summary h3 {
-                    margin-top: 0;
-                    color: #333;
-                }
-                @media print {
-                    body { margin: 0; }
-                    .no-print { display: none; }
-                }
-            </style>
-        </head>
-        <body>
-            ${reportContent}
-        </body>
-        </html>
-    `);
+    // Create a temporary element to hold the report content
+    const tempElement = document.createElement('div');
+    tempElement.innerHTML = `
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                line-height: 1.6;
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 20px;
+            }
+            .header h1 {
+                margin: 0;
+                color: #333;
+            }
+            .header p {
+                margin: 5px 0;
+                color: #666;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th, td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+            th {
+                background-color: #f2f2f2;
+                font-weight: bold;
+            }
+            .summary {
+                margin-top: 30px;
+                padding: 15px;
+                background-color: #f9f9f9;
+                border: 1px solid #ddd;
+            }
+            .summary h3 {
+                margin-top: 0;
+                color: #333;
+            }
+        </style>
+        ${reportContent}
+    `;
 
-    printWindow.document.close();
-
-    // Wait for content to load then print
-    printWindow.onload = function() {
-        printWindow.print();
-        printWindow.close();
+    // Use html2pdf to generate and download the PDF
+    const options = {
+        margin: 1,
+        filename: 'laporan-persediaan.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
+
+    html2pdf().set(options).from(tempElement).save();
 }
 
 function generateInventoryReport() {
