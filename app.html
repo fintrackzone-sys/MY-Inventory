@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pencatatan Persediaan</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <div id="login-section">
+        <div class="login-container">
+            <div class="form-toggle">
+                <button id="login-toggle" class="toggle-btn active">Login</button>
+                <button id="register-toggle" class="toggle-btn">Registrasi</button>
+            </div>
+
+            <div id="login-form-container">
+                <h2>Login</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit">Login</button>
+                    <p id="login-error" style="color: red; display: none;">Username atau password salah!</p>
+                </form>
+            </div>
+
+            <div id="register-form-container" style="display: none;">
+                <h2>Daftar Usaha Baru</h2>
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="register-business-name">Nama Usaha:</label>
+                        <input type="text" id="register-business-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-username">Username:</label>
+                        <input type="text" id="register-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">Password:</label>
+                        <input type="password" id="register-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password-confirm">Konfirmasi Password:</label>
+                        <input type="password" id="register-password-confirm" required>
+                    </div>
+                    <button type="submit">Daftar</button>
+                    <p id="register-error" style="color: red; display: none;"></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-section" style="display: none;">
+        <header>
+            <div class="header-content">
+                <h1 id="business-name">Aplikasi Pencatatan Persediaan</h1>
+            </div>
+            <div class="hamburger-menu">
+                <button id="hamburger-btn"><i class="fas fa-bars"></i></button>
+                <div id="hamburger-menu" class="menu">
+                    <a href="#" id="dashboard-link">Dashboard</a>
+                    <a href="#" id="stock-link">Persediaan</a>
+                    <a href="#" id="stock-card-link">Transaksi</a>
+                    <a href="#" id="edit-business-link">Edit Usaha</a>
+                    <a href="#" id="logout-link">Logout</a>
+                </div>
+            </div>
+        </header>
+
+        <main>
+        <section id="form-section">
+            <h2>Tambah/Edit Item</h2>
+            <form id="item-form">
+                <input type="hidden" id="item-id">
+                <div class="form-group">
+                    <label for="item-code">Kode Item:</label>
+                    <input type="text" id="item-code" required>
+                    <button type="button" id="barcode-btn" class="action-btn" title="Scan Barcode" style="padding: 8px 169px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top:5px; margin-left: 5px;">📱</button>
+                </div>
+                <div class="form-group">
+                    <label for="item-name">Nama Item:</label>
+                    <input type="text" id="item-name" required>
+                    <button type="button" id="camera-btn" class="action-btn" title="Ambil Foto" style="padding: 8px 167px; background: linear-gradient(135deg, #2196f3, #1976d2); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; margin-left: 5px;">📷</button>
+                </div>
+                <div class="form-group">
+                    <label for="item-stock">Stok:</label>
+                    <input type="number" id="item-stock" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="item-price">Harga:</label>
+                    <input type="number" id="item-price" min="0" step="0.01" required>
+                </div>
+                <button type="submit" id="submit-btn">Tambah Item</button>
+                <button type="button" id="cancel-btn" style="display:none;">Batal</button>
+            </form>
+        </section>
+
+        <section id="list-section">
+            <h2>Daftar Item</h2>
+            <table id="item-table">
+                <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Kode</th>
+                        <th>Nama</th>
+                        <th>Stok</th>
+                        <th>Harga</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="item-tbody">
+                    <!-- Items will be populated here -->
+                </tbody>
+            </table>
+        </section>
+
+        <section id="stock-card-section" style="display: none;">
+            <h2>Transaksi</h2>
+            <div class="stock-card-controls">
+                <input type="text" id="stock-search" placeholder="Cari item...">
+                <button id="stock-barcode-btn" class="action-btn" title="Scan Barcode untuk Transaksi" style="padding: 10px 15px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer;">📱 Scan Barcode</button>
+                <button id="print-stock-btn" class="print-btn">Print Kartu Stok</button>
+            </div>
+            <div id="stock-card-container">
+                <!-- Stock cards will be populated here -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Edit Business Modal -->
+    <div id="edit-business-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Edit Usaha</h2>
+            <form id="edit-business-form">
+                <div class="form-group">
+                    <label for="business-name-input">Nama Usaha:</label>
+                    <input type="text" id="business-name-input" required>
+                </div>
+                <button type="submit">Simpan Nama Usaha</button>
+            </form>
+            <hr>
+            <h3>Ubah Password</h3>
+            <form id="change-password-form">
+                <div class="form-group">
+                    <label for="current-password">Password Lama:</label>
+                    <input type="password" id="current-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Password Baru:</label>
+                    <input type="password" id="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm-new-password">Konfirmasi Password Baru:</label>
+                    <input type="password" id="confirm-new-password" required>
+                </div>
+                <button type="submit">Ubah Password</button>
+            </form>
+        </div>
+    </div>
+
+
+
+    <!-- Transaction Modal -->
+    <div id="transaction-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Tambah Transaksi</h2>
+            <form id="transaction-form">
+                <div class="form-group">
+                    <label for="transaction-date">Tanggal:</label>
+                    <input type="date" id="transaction-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="transaction-item-select">Pilih Item:</label>
+                    <select id="transaction-item-select" required>
+                        <option value="">Pilih Item</option>
+                    </select>
+                </div>
+                <div class="form-group" id="item-buttons" style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" id="transaction-barcode-btn" class="action-btn" title="Scan Barcode untuk Pilih Item" style="padding: 8px 15px; background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; border-radius: 4px; cursor: pointer;">📱</button>
+                </div>
+                <div class="form-group">
+                    <label for="transaction-type">Tipe Transaksi:</label>
+                    <select id="transaction-type" required>
+                        <option value="outgoing">Barang Keluar</option>
+                        <option value="incoming">Barang Masuk</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="transaction-quantity">Jumlah:</label>
+                    <input type="number" id="transaction-quantity" min="1" required>
+                </div>
+                <div class="form-group" id="cost-field" style="display: none;">
+                    <label for="transaction-cost">Harga per Unit:</label>
+                    <input type="number" id="transaction-cost" min="0" step="0.01" placeholder="Harga per unit">
+                </div>
+                <div class="form-group">
+                    <label for="transaction-notes">Catatan:</label>
+                    <textarea id="transaction-notes" rows="3"></textarea>
+                </div>
+                <button type="submit">Simpan Transaksi</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div id="camera-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close">&times;</span>
+            <h2>Ambil Foto Item</h2>
+            <video id="camera-video" autoplay playsinline style="width: 100%; max-height: 400px;"></video>
+            <canvas id="camera-canvas" style="display: none;"></canvas>
+            <div style="margin-top: 10px;">
+                <button id="capture-btn" class="action-btn" style="background: linear-gradient(135deg, #4caf50, #388e3c); color: white; margin-right: 10px;">Ambil Foto</button>
+                <button id="retake-btn" class="action-btn" style="background: linear-gradient(135deg, #ff5722, #d84315); color: white; display: none;">Ambil Ulang</button>
+                <button id="save-photo-btn" class="action-btn" style="background: linear-gradient(135deg, #2196f3, #1976d2); color: white; display: none;">Simpan Foto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barcode Scan Modal -->
+    <div id="barcode-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close">&times;</span>
+            <h2>Scan Barcode</h2>
+            <div id="barcode-scanner" style="width: 100%; height: 400px;"></div>
+            <p style="text-align: center; margin-top: 10px;">Arahkan kamera ke barcode</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
