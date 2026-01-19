@@ -791,6 +791,12 @@ function changePassword(e) {
         return;
     }
 
+    // Validate new password strength
+    if (!validatePassword(newPassword)) {
+        alert('Password baru harus terdiri dari 8 karakter, mengandung huruf besar, huruf kecil, dan karakter unik (simbol)!');
+        return;
+    }
+
     // Find current user
     const currentUser = users.find(u => u.id === currentUserId);
     if (!currentUser) {
@@ -837,6 +843,12 @@ function registerBusiness(e) {
 
     if (!businessName || !username || !password || !passwordConfirm) {
         alert('Mohon isi semua field!');
+        return;
+    }
+
+    // Validate password strength
+    if (!validatePassword(password)) {
+        alert('Password harus terdiri dari 8 karakter, mengandung huruf besar, huruf kecil, dan karakter unik (simbol)!');
         return;
     }
 
@@ -1224,6 +1236,31 @@ function startBarcodeScanner() {
 
 function stopBarcodeScanner() {
     Quagga.stop();
+}
+
+// Password validation function
+function validatePassword(password) {
+    // Check length (8 characters)
+    if (password.length !== 8) {
+        return false;
+    }
+
+    // Check for uppercase letter
+    if (!/[A-Z]/.test(password)) {
+        return false;
+    }
+
+    // Check for lowercase letter
+    if (!/[a-z]/.test(password)) {
+        return false;
+    }
+
+    // Check for special character (symbol)
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+        return false;
+    }
+
+    return true;
 }
 
 // Initial render
